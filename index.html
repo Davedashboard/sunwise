@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f3b5f" />
+  <title>Sunwise – Weather & UV</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">☀️ Sunwise</div>
+    <button id="locChip" class="loc-chip" aria-label="Change location">
+      <span id="locName">Choose location</span> ▾
+    </button>
+  </header>
+
+  <!-- Location search sheet -->
+  <div id="locSheet" class="sheet hidden" role="dialog" aria-label="Choose location">
+    <div class="sheet-inner">
+      <div class="sheet-head">
+        <input id="locInput" type="search" placeholder="Search a town, city or postcode area…" autocomplete="off" />
+        <button id="locClose" class="icon-btn" aria-label="Close">✕</button>
+      </div>
+      <button id="geoBtn" class="geo-btn">📍 Use my current location</button>
+      <ul id="locResults" class="loc-results"></ul>
+    </div>
+  </div>
+
+  <main>
+    <!-- Day strip shared by Weather and UV views -->
+    <section id="dayStripWrap" class="day-strip-wrap">
+      <div id="dayStrip" class="day-strip" role="tablist" aria-label="Forecast days"></div>
+    </section>
+
+    <!-- WEATHER -->
+    <section id="view-weather" class="view">
+      <div id="weatherNow" class="card now"></div>
+      <div id="weatherDay" class="card"></div>
+      <h3 class="section-title">Hour by hour</h3>
+      <div id="weatherHours" class="hours"></div>
+    </section>
+
+    <!-- UV -->
+    <section id="view-uv" class="view hidden">
+      <div id="uvSummary" class="card"></div>
+      <h3 class="section-title">UV through the day</h3>
+      <div id="uvChart" class="card chart"></div>
+      <div class="uv-legend">
+        <span class="b low">0–2 Low</span>
+        <span class="b mod">3–5 Moderate</span>
+        <span class="b high">6–7 High</span>
+        <span class="b vhigh">8–10 Very high</span>
+        <span class="b ext">11+ Extreme</span>
+      </div>
+    </section>
+
+    <!-- SUN SAFETY -->
+    <section id="view-safety" class="view hidden">
+      <div class="card">
+        <h2>Your skin type</h2>
+        <p class="muted">Pick the description that fits you best (Fitzpatrick scale – the standard dermatologists use).</p>
+        <div id="skinTypes" class="skin-grid"></div>
+      </div>
+      <div id="safetyResult"></div>
+      <p class="disclaimer">
+        Burn times are rough estimates for adults with unprotected skin, based on the forecast UV index and typical
+        sunburn thresholds for each skin type. Children, people on photosensitising medication and anyone near water,
+        sand or snow can burn much faster. This isn't medical advice — if in doubt, cover up.
+      </p>
+    </section>
+
+    <div id="status" class="status hidden"></div>
+  </main>
+
+  <nav class="tabbar">
+    <button class="tab active" data-view="weather"><span>🌦️</span>Weather</button>
+    <button class="tab" data-view="uv"><span>🔆</span>UV index</button>
+    <button class="tab" data-view="safety"><span>🧴</span>Sun safety</button>
+  </nav>
+
+  <footer class="credit">Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0)</footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

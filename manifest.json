@@ -1,0 +1,11 @@
+{
+  "name": "Sunwise – Weather & UV",
+  "short_name": "Sunwise",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#eef3f8",
+  "theme_color": "#0f3b5f",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

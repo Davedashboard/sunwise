@@ -74,6 +74,28 @@
       </p>
     </section>
 
+    <!-- HISTORY -->
+    <section id="view-history" class="view hidden">
+      <div class="card">
+        <h2>Historic weather</h2>
+        <p class="muted">Pick a city and a start date to see what the weather was actually like for that day and the 9 days after it.</p>
+        <div class="hist-form">
+          <label>City
+            <button id="histCity" class="hist-input hist-city" type="button">Choose city ▾</button>
+          </label>
+          <label>Start date
+            <input id="histDate" class="hist-input" type="date" />
+          </label>
+        </div>
+        <div id="histRange" class="muted hist-range"></div>
+      </div>
+      <div id="histScene" class="card scene-card"></div>
+      <div id="histStrip" class="day-strip"></div>
+      <div id="histHours" class="hours"></div>
+      <div id="histStatus" class="status hidden"></div>
+      <p class="disclaimer">Historic data comes from weather reanalysis (ERA5). It is available from 1940 up to about 5 days ago. Values are for a grid cell around the city, so they can differ slightly from a local weather station.</p>
+    </section>
+
     <div id="status" class="status hidden"></div>
   </main>
 
@@ -81,6 +103,7 @@
     <button class="tab active" data-view="weather"><span>🌦️</span>Weather</button>
     <button class="tab" data-view="uv"><span>🔆</span>UV index</button>
     <button class="tab" data-view="safety"><span>🧴</span>Sun safety</button>
+    <button class="tab" data-view="history"><span>🕰️</span>History</button>
   </nav>
 
   <footer class="credit">Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0)</footer>

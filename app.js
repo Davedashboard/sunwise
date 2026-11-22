@@ -299,7 +299,223 @@
     // Tip: the day strip at the top lets you check other days
   }
 
+  // ---------- History (Open-Meteo archive / ERA5) ----------
+  const HIST_DAYS = 10, ARCHIVE_LAG = 5, ARCHIVE_MIN = '1940-01-01';
+  const isoDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const addDays = (iso, n) => { const d = new Date(iso + 'T12:00'); d.setDate(d.getDate() + n); return isoDate(d); };
+  const histMax = () => addDays(isoDate(new Date()), -ARCHIVE_LAG);
+  const hist = { loc: store.get('histLoc', null), start: null, data: null, idx: 0, key: null };
+
+  async function fetchHistory(loc, start, end) {
+    const p = new URLSearchParams({
+      latitude: loc.latitude, longitude: loc.longitude, start_date: start, end_date: end,
+      timezone: 'auto', wind_speed_unit: 'mph',
+      daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,snowfall_sum,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,sunshine_duration,sunrise,sunset',
+      hourly: 'temperature_2m,weather_code,precipitation',
+    });
+    const res = await fetch('https://archive-api.open-meteo.com/v1/archive?' + p);
+    if (!res.ok) throw new Error('History request failed (' + res.status + ')');
+    return res.json();
+  }
+
+  function histStatus(msg) {
+    const el = $('#histStatus');
+    if (!msg) { el.classList.add('hidden'); return; }
+    el.textContent = msg; el.classList.remove('hidden');
+  }
+
+  async function loadHistory() {
+    const loc = hist.loc || state.loc, max = histMax();
+    if (!hist.start) hist.start = addDays(max, -(HIST_DAYS - 1));
+    if (hist.start > max) hist.start = max;
+    if (hist.start < ARCHIVE_MIN) hist.start = ARCHIVE_MIN;
+    let end = addDays(hist.start, HIST_DAYS - 1);
+    if (end > max) end = max;
+    const key = `${loc.latitude},${loc.longitude},${hist.start},${end}`;
+    renderHistory();
+    if (key === hist.key && hist.data) return;
+    hist.key = key; hist.data = null;
+    renderHistory();
+    histStatus('Loading historic weather…');
+    try {
+      const data = await fetchHistory(loc, hist.start, end);
+      if (key !== hist.key) return; // a newer request has started
+      hist.data = data; hist.idx = 0; histStatus('');
+    } catch (e) {
+      console.error(e);
+      if (key === hist.key) { hist.key = null; histStatus('Couldn\'t load historic weather. Check your connection and try again.'); }
+    }
+    renderHistory();
+  }
+
+  // --- Illustrated scene: a little picture of what the day looked like ---
+  function sceneKind(code) {
+    if (code === 0 || code === 1) return 'clear';
+    if (code === 2) return 'partly';
+    if (code === 3) return 'cloudy';
+    if (code === 45 || code === 48) return 'fog';
+    if ((code >= 71 && code <= 77) || code === 85 || code === 86) return 'snow';
+    if (code >= 95) return 'storm';
+    if (code >= 51) return 'rain';
+    return 'cloudy';
+  }
+  let sceneId = 0;
+  function sceneSvg(code, { tmax = 10, snowCm = 0 } = {}) {
+    const kind = sceneKind(code), id = 'sc' + (++sceneId);
+    const heavy = [55, 65, 67, 75, 82, 86, 99].includes(code);
+    const skies = {
+      clear: tmax >= 22 ? ['#2f8ff0', '#ffe2a8'] : ['#4fa3f7', '#cfeaff'],
+      partly: ['#62a8e6', '#d8edff'], cloudy: ['#93a2b1', '#d9dee3'], fog: ['#bfc6cd', '#eceef0'],
+      rain: ['#66788a', '#b5c0cb'], snow: ['#a9b8c8', '#eef2f6'], storm: ['#2b3743', '#66737f'],
+    };
+    const [skyTop, skyBot] = skies[kind];
+    let seed = (code + 7) * 9301 + Math.round(tmax * 10);
+    const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+
+    const cloud = (x, y, s, fill, op = 1) => `<g transform="translate(${x} ${y}) scale(${s})" fill="${fill}" opacity="${op}">
+        <ellipse cx="0" cy="12" rx="46" ry="16"/><circle cx="-18" cy="4" r="18"/><circle cx="8" cy="-6" r="24"/><circle cx="32" cy="6" r="16"/></g>`;
+    const sun = (x, y, r) => {
+      let rays = '';
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2;
+        rays += `<line x1="${x + Math.cos(a) * (r + 8)}" y1="${y + Math.sin(a) * (r + 8)}" x2="${x + Math.cos(a) * (r + 18)}" y2="${y + Math.sin(a) * (r + 18)}"/>`;
+      }
+      return `<g class="sun-rays" stroke="#ffd34d" stroke-width="4" stroke-linecap="round">${rays}</g>
+        <circle cx="${x}" cy="${y}" r="${r + 10}" fill="#fff3b0" opacity=".45"/><circle cx="${x}" cy="${y}" r="${r}" fill="#ffcc33"/>`;
+    };
+
+    let sky = '', weather = '';
+    if (kind === 'clear') sky += sun(300, 62, tmax >= 22 ? 32 : 26);
+    if (kind === 'partly') sky += sun(300, 58, 24) + cloud(250, 78, 1, '#ffffff') + cloud(90, 52, .7, '#ffffff', .9);
+    if (kind === 'cloudy') sky += cloud(90, 55, 1, '#eef1f4') + cloud(230, 70, 1.2, '#e2e7ec') + cloud(340, 45, .8, '#f4f6f8');
+    if (kind === 'rain' || kind === 'storm') {
+      const f = kind === 'storm' ? '#4a5866' : '#8996a3';
+      sky += cloud(80, 52, 1.1, f) + cloud(210, 62, 1.3, f) + cloud(340, 50, 1, f);
+    }
+    if (kind === 'snow') sky += cloud(90, 50, 1, '#dfe5ec') + cloud(230, 60, 1.2, '#d3dbe4') + cloud(345, 48, .9, '#e6ebf0');
+    if (kind === 'storm') weather += `<polygon class="bolt" points="215,85 195,130 212,130 198,170 238,118 220,118 232,85" fill="#ffe14d"/>`;
+
+    if (kind === 'rain' || kind === 'storm') {
+      const n = heavy || kind === 'storm' ? 46 : code <= 57 ? 16 : 28;
+      for (let i = 0; i < n; i++) {
+        const x = 20 + rnd() * 370, y = 75 + rnd() * 70, d = (rnd() * 0.9).toFixed(2);
+        weather += `<line class="drop" style="animation-delay:-${d}s" x1="${x}" y1="${y}" x2="${x - 4}" y2="${y + 11}" stroke="#d6e6f5" stroke-width="2" stroke-linecap="round"/>`;
+      }
+    }
+    if (kind === 'snow') {
+      const n = heavy ? 50 : 30;
+      for (let i = 0; i < n; i++) {
+        const x = 15 + rnd() * 375, y = 70 + rnd() * 90, d = (rnd() * 3).toFixed(2), r = (1.6 + rnd() * 2).toFixed(1);
+        weather += `<circle class="flake" style="animation-delay:-${d}s" cx="${x}" cy="${y}" r="${r}" fill="#fff"/>`;
+      }
+    }
+    if (kind === 'fog') {
+      for (let i = 0; i < 5; i++) weather += `<rect class="fog" style="animation-delay:-${i * 1.3}s" x="${-40 + (i % 2) * 60}" y="${70 + i * 26}" width="420" height="16" rx="8" fill="#fff" opacity=".55"/>`;
+    }
+
+    const snowy = kind === 'snow' || snowCm > 0.5;
+    const wet = kind === 'rain' || kind === 'storm';
+    const back = snowy ? '#e3eaf1' : wet ? '#5f8f4a' : kind === 'clear' && tmax >= 24 ? '#a9c25a' : '#7fb35e';
+    const front = snowy ? '#f6f9fb' : wet ? '#4c7c3a' : kind === 'clear' && tmax >= 24 ? '#93ad45' : '#64a047';
+    const roof = snowy ? '#f6f9fb' : '#b5533c';
+    const ground = `
+      <path d="M0 170 Q 90 140 190 162 T 400 150 V 220 H 0 Z" fill="${back}"/>
+      <path d="M0 190 Q 120 168 230 186 T 400 180 V 220 H 0 Z" fill="${front}"/>
+      <g transform="translate(70 150)">
+        <rect x="0" y="12" width="44" height="30" fill="#f3e3c4"/>
+        <polygon points="-6,14 22,-8 50,14" fill="${roof}" stroke="${snowy ? '#cfd8e0' : 'none'}"/>
+        <rect x="17" y="24" width="10" height="18" fill="#7a4b2a"/>
+        <rect x="5" y="19" width="8" height="8" fill="${kind === 'storm' || kind === 'rain' ? '#ffe9a3' : '#a7d3f5'}"/>
+        <rect x="31" y="19" width="8" height="8" fill="${kind === 'storm' || kind === 'rain' ? '#ffe9a3' : '#a7d3f5'}"/>
+      </g>
+      <g transform="translate(320 150)">
+        <rect x="-3" y="10" width="6" height="22" fill="#7a4b2a"/>
+        <circle cx="0" cy="2" r="16" fill="${snowy ? '#e9eef3' : wet ? '#3f6e30' : '#4f8f3a'}"/>
+      </g>`;
+
+    return `<svg class="scene" viewBox="0 0 400 220" role="img" aria-label="Illustration: ${esc(wx(code).desc)}">
+      <defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${skyTop}"/><stop offset="1" stop-color="${skyBot}"/></linearGradient></defs>
+      <rect width="400" height="220" fill="url(#${id})"/>
+      ${sky}${ground}${weather}
+    </svg>`;
+  }
+
+  function renderHistory() {
+    const loc = hist.loc || state.loc, max = histMax();
+    $('#histCity').textContent = locLabel(loc) + ' ▾';
+    $('#locName').textContent = locLabel(loc);
+    const di = $('#histDate');
+    di.min = ARCHIVE_MIN; di.max = max;
+    if (hist.start) di.value = hist.start;
+    if (hist.start) {
+      let end = addDays(hist.start, HIST_DAYS - 1); if (end > max) end = max;
+      const n = Math.round((new Date(end + 'T12:00') - new Date(hist.start + 'T12:00')) / 864e5) + 1;
+      $('#histRange').textContent = `Showing ${n} day${n === 1 ? '' : 's'}: ${longDate(hist.start)} → ${longDate(end)}`
+        + (n < HIST_DAYS ? ' (data only goes up to about 5 days ago)' : '');
+    }
+
+    const data = hist.data;
+    if (!data) {
+      $('#histScene').classList.add('hidden'); $('#histStrip').innerHTML = ''; $('#histHours').innerHTML = '';
+      return;
+    }
+    const d = data.daily, i = Math.min(hist.idx, d.time.length - 1);
+    if (d.weather_code[i] == null) {
+      $('#histScene').classList.remove('hidden');
+      $('#histScene').innerHTML = '<p class="muted" style="margin:0">No data for this day yet.</p>';
+    }
+
+    $('#histStrip').innerHTML = d.time.map((t, k) => {
+      const w = wx(d.weather_code[k]);
+      return `<button class="day ${k === i ? 'active' : ''}" data-i="${k}">
+        <div class="dname">${esc(new Date(t + 'T12:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }))}</div>
+        <div class="dico" title="${esc(w.desc)}">${w.icon}</div>
+        <div class="dtemp">${round(d.temperature_2m_max[k])}° <span class="lo">${round(d.temperature_2m_min[k])}°</span></div>
+        <div class="drain">💧${(d.precipitation_sum[k] ?? 0).toFixed(1)}mm</div>
+      </button>`;
+    }).join('');
+
+    if (d.weather_code[i] == null) { $('#histHours').innerHTML = ''; return; }
+    const code = d.weather_code[i], w = wx(code);
+    const sunH = d.sunshine_duration[i] != null ? (d.sunshine_duration[i] / 3600).toFixed(1) : '–';
+    const snow = d.snowfall_sum[i] ?? 0;
+    $('#histScene').classList.remove('hidden');
+    $('#histScene').innerHTML = `
+      ${sceneSvg(code, { tmax: d.temperature_2m_max[i] ?? 10, snowCm: snow })}
+      <div class="scene-info">
+        <div>
+          <div class="scene-date">${esc(longDate(d.time[i]))} ${esc(new Date(d.time[i] + 'T12:00').getFullYear())}</div>
+          <div class="scene-desc">${w.icon} ${esc(w.desc)}</div>
+        </div>
+        <div class="scene-temp">${round(d.temperature_2m_max[i])}°<span>/${round(d.temperature_2m_min[i])}°</span></div>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="k">Rain / precipitation</div><div class="v">${(d.precipitation_sum[i] ?? 0).toFixed(1)} mm</div></div>
+        ${snow > 0 ? `<div class="stat"><div class="k">Snowfall</div><div class="v">${snow.toFixed(1)} cm</div></div>` : ''}
+        <div class="stat"><div class="k">Sunshine</div><div class="v">${sunH} hrs</div></div>
+        <div class="stat"><div class="k">Wind (gusts)</div><div class="v">${round(d.wind_speed_10m_max[i])} (${round(d.wind_gusts_10m_max[i])}) mph ${d.wind_direction_10m_dominant[i] != null ? compass(d.wind_direction_10m_dominant[i]) : ''}</div></div>
+        <div class="stat"><div class="k">Sunrise</div><div class="v">${d.sunrise[i] ? hhmm(d.sunrise[i]) : '–'}</div></div>
+        <div class="stat"><div class="k">Sunset</div><div class="v">${d.sunset[i] ? hhmm(d.sunset[i]) : '–'}</div></div>
+      </div>`;
+
+    const rise = d.sunrise[i] ? +d.sunrise[i].slice(11, 13) : 7, set = d.sunset[i] ? +d.sunset[i].slice(11, 13) : 19;
+    const h = data.hourly, hours = [];
+    for (let k = 0; k < h.time.length; k++) {
+      if (!h.time[k].startsWith(d.time[i]) || h.temperature_2m[k] == null) continue;
+      const hr = +h.time[k].slice(11, 13);
+      if (hr % 2) continue; // every 2 hours keeps the strip short
+      hours.push({ time: h.time[k], temp: h.temperature_2m[k], code: h.weather_code[k], rain: h.precipitation[k], isDay: hr >= rise && hr <= set ? 1 : 0 });
+    }
+    $('#histHours').innerHTML = hours.map((x) => {
+      const hw = wx(x.code, x.isDay);
+      return `<div class="hour"><div>${hhmm(x.time)}</div><div class="hico" title="${esc(hw.desc)}">${hw.icon}</div>
+        <div><b>${round(x.temp)}°</b></div><div class="hrain">${(x.rain ?? 0) > 0 ? '💧' + x.rain.toFixed(1) + 'mm' : '&nbsp;'}</div></div>`;
+    }).join('');
+  }
+
   function render() {
+    $('#dayStripWrap').classList.toggle('hidden', state.view === 'history');
+    if (state.view === 'history') { renderHistory(); return; }
     if (!state.data) return;
     $('#locName').textContent = locLabel(state.loc);
     renderDayStrip();
@@ -332,8 +548,9 @@
   function switchView(v) {
     state.view = v;
     document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.view === v));
-    ['weather', 'uv', 'safety'].forEach((k) => $('#view-' + k).classList.toggle('hidden', k !== v));
+    ['weather', 'uv', 'safety', 'history'].forEach((k) => $('#view-' + k).classList.toggle('hidden', k !== v));
     render();
+    if (v === 'history') loadHistory();
     window.scrollTo({ top: 0 });
   }
 
@@ -351,12 +568,22 @@
 
   // Location sheet
   const sheet = $('#locSheet'), input = $('#locInput'), results = $('#locResults');
-  let lastResults = [], timer;
-  const openSheet = () => { sheet.classList.remove('hidden'); input.value = ''; results.innerHTML = ''; setTimeout(() => input.focus(), 50); };
+  let lastResults = [], timer, sheetMode = 'forecast';
+  const openSheet = (mode) => { sheetMode = mode === 'history' ? 'history' : 'forecast'; sheet.classList.remove('hidden'); input.value = ''; results.innerHTML = ''; setTimeout(() => input.focus(), 50); };
   const closeSheet = () => sheet.classList.add('hidden');
-  const chooseLoc = (loc) => { state.loc = loc; store.set('loc', loc); state.dayIdx = 0; closeSheet(); load(); };
+  const chooseLoc = (loc) => {
+    closeSheet();
+    if (sheetMode === 'history') { hist.loc = loc; store.set('histLoc', loc); loadHistory(); return; }
+    state.loc = loc; store.set('loc', loc); state.dayIdx = 0; load();
+  };
 
-  $('#locChip').addEventListener('click', openSheet);
+  $('#locChip').addEventListener('click', () => openSheet(state.view === 'history' ? 'history' : 'forecast'));
+  $('#histCity').addEventListener('click', () => openSheet('history'));
+  $('#histDate').addEventListener('change', (e) => { if (e.target.value) { hist.start = e.target.value; loadHistory(); } });
+  $('#histStrip').addEventListener('click', (e) => {
+    const btn = e.target.closest('.day'); if (!btn) return;
+    hist.idx = +btn.dataset.i; renderHistory();
+  });
   $('#locClose').addEventListener('click', closeSheet);
   sheet.addEventListener('click', (e) => { if (e.target === sheet) closeSheet(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });

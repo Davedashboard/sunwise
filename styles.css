@@ -145,3 +145,37 @@ main { max-width: 760px; margin: 0 auto; padding: 12px; }
 .status { text-align: center; padding: 24px; color: var(--muted); }
 .credit { text-align: center; font-size: .72rem; color: var(--muted); padding: 8px 0 16px; }
 .credit a { color: inherit; }
+
+/* History */
+.hist-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hist-form label { display: flex; flex-direction: column; gap: 4px; font-size: .78rem; color: var(--muted); }
+.hist-input {
+  font: inherit; font-size: 1rem; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-height: 44px; width: 100%;
+}
+.hist-city { text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hist-range { margin: 10px 0 0; font-size: .82rem; }
+.day .drain { margin-top: 6px; font-size: .72rem; color: var(--accent); }
+
+.scene-card { overflow: hidden; }
+.scene { width: calc(100% + 32px); margin: -16px -16px 12px; display: block; height: auto; }
+.scene-info { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.scene-date { font-weight: 700; }
+.scene-desc { color: var(--muted); }
+.scene-temp { font-size: 2.2rem; font-weight: 800; line-height: 1; }
+.scene-temp span { font-size: 1.1rem; color: var(--muted); font-weight: 600; }
+
+.scene .drop { animation: drop-fall .9s linear infinite; }
+.scene .flake { animation: flake-fall 3s linear infinite; }
+.scene .fog { animation: fog-drift 6s ease-in-out infinite alternate; }
+.scene .bolt { animation: bolt-flash 4s steps(1) infinite; }
+.scene .sun-rays { transform-box: fill-box; transform-origin: center; animation: sun-spin 30s linear infinite; }
+@keyframes drop-fall { from { transform: translateY(-18px); opacity: 0; } 20% { opacity: 1; } to { transform: translateY(48px); opacity: 0; } }
+@keyframes flake-fall { from { transform: translate(0, -14px); opacity: 0; } 15% { opacity: 1; } 50% { transform: translate(6px, 20px); } to { transform: translate(-4px, 54px); opacity: 0; } }
+@keyframes fog-drift { from { transform: translateX(-20px); } to { transform: translateX(20px); } }
+@keyframes bolt-flash { 0%, 100% { opacity: 0; } 70% { opacity: 1; } 74% { opacity: 0; } 78% { opacity: 1; } 84% { opacity: 0; } }
+@keyframes sun-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .scene * { animation: none !important; } }
+
+/* Four tabs fit better with slightly smaller labels */
+.tab { font-size: .72rem; }

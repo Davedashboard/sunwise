@@ -5,6 +5,7 @@ A lightweight, mobile-first web app with:
 - **Weather**: current conditions, a 14-day forecast strip, and hour-by-hour detail for any day
 - **UV index**: peak UV per day, an hourly UV chart (actual vs clear-sky), and the time window when protection is needed
 - **Sun safety**: pick your skin type (Fitzpatrick I–VI) to get an estimated time-to-burn and what to do about it
+- **History**: pick a city and a start date to see what the weather actually was for that day and the 9 days after, with an illustrated picture of each day (sun, cloud, rain, storm, snow or fog)
 
 Location search, your chosen location and your skin type are remembered in the browser (`localStorage`).
 
@@ -16,6 +17,7 @@ There's no public BBC Weather API (it was retired years ago). This app uses **[O
 - Up to 16-day forecasts (the app uses 14)
 - `uv_index` / `uv_index_clear_sky` hourly, `uv_index_max` daily
 - Geocoding API for place search
+- [Historical Weather API](https://open-meteo.com/en/docs/historical-weather-api) (ERA5 reanalysis) for the History tab — 1940 to about 5 days ago
 
 Licence: CC BY 4.0. Attribution is shown in the footer. The free tier is for **non-commercial** use. Commercial use needs a paid Open-Meteo plan.
 

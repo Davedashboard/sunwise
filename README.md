@@ -81,3 +81,11 @@ icon.svg       – app icon
 - Hourly burn-time timeline
 - SPF selector
 - Notifications when UV goes over a threshold
+
+## Android APK
+
+Every push to `main` builds an Android APK with GitHub Actions (`.github/workflows/android-apk.yml`) and publishes it as a release.
+
+Download the latest: https://github.com/Davedashboard/sunwise/releases/latest/download/sunwise.apk
+
+The `android/` folder is a small WebView wrapper. The web files are copied into it at build time, so the app and the website stay identical. It's signed with a fixed key that's committed to the repo, so new builds install over old ones. That's fine for sideloading but not for the Play Store.

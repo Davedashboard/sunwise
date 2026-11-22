@@ -1,0 +1,52 @@
+plugins {
+    id 'com.android.application'
+}
+
+def runNumber = (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
+
+android {
+    namespace 'uk.dawson.sunwise'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'uk.dawson.sunwise'
+        minSdk 24
+        targetSdk 34
+        versionCode runNumber
+        versionName "1.0.${runNumber}"
+    }
+
+    // Fixed key so each new build installs over the previous one (personal sideload use only)
+    signingConfigs {
+        sideload {
+            storeFile file('../sunwise-sideload.keystore')
+            storePassword 'sunwise'
+            keyAlias 'sunwise'
+            keyPassword 'sunwise'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.sideload
+        }
+        debug {
+            signingConfig signingConfigs.sideload
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.11.0'
+}
